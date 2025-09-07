@@ -2,6 +2,13 @@ const logger = require('../utils/logger');
 const Post = require('../models/Post');
 const { validateCreatePost } = require('../utils/validation');
 
+async function invalidatePostCache(req, input) {
+	const keys = await req.redisClient.keys('posts:*');
+	if (keys.length > 0) {
+		await req.redisClient.del(keys);
+	}
+}
+
 const createPost = async (req, res) => {
 	logger.info('Create post endpoint hit...');
 	try {
@@ -22,6 +29,8 @@ const createPost = async (req, res) => {
 		});
 
 		await newPost.save();
+		await invalidatePostCache(req, newPost._id.toString());
+
 		logger.info('Post created successfully: ', newPost);
 		res.status(201).json({
 			success: true,
@@ -38,6 +47,35 @@ const createPost = async (req, res) => {
 
 const getAllPosts = async (req, res) => {
 	try {
+		const page = parseInt(req.query.page) || 1;
+		const limit = parseInt(req.query.limit) || 10;
+		const startIndex = (page - 1) * limit;
+
+		const cacheKey = `posts:${page}:${limit}`;
+		const cachedPosts = await req.redisClient.get(cacheKey);
+
+		if (cachedPosts) {
+			return res.json(JSON.parse(cachedPosts));
+		}
+
+		const posts = await Post.find({})
+			.sort({ createdAt: -1 })
+			.skip(startIndex)
+			.limit(limit);
+
+		const totalNoOfPosts = await Post.countDocuments();
+
+		const result = {
+			posts,
+			currentPage: page,
+			totalPages: Math.ceil(totalNoOfPosts / limit),
+			totalPosts: totalNoOfPosts,
+		};
+
+		// Save in Redis cache for 5 minutes
+		await req.redisClient.set(cacheKey, JSON.stringify(result), 'EX', 300);
+
+		res.json(result);
 	} catch (error) {
 		logger.error('Error fetching posts: ', error);
 		res.status(500).json({
