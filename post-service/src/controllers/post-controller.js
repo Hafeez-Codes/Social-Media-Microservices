@@ -3,6 +3,9 @@ const Post = require('../models/Post');
 const { validateCreatePost } = require('../utils/validation');
 
 async function invalidatePostCache(req, input) {
+	const cachedKey = `posts:${input}`;
+	await req.redisClient.del(cachedKey);
+
 	const keys = await req.redisClient.keys('posts:*');
 	if (keys.length > 0) {
 		await req.redisClient.del(keys);
@@ -87,6 +90,26 @@ const getAllPosts = async (req, res) => {
 
 const getPost = async (req, res) => {
 	try {
+		const postId = req.params.id;
+		const cacheKey = `post:${postId}`;
+		const cachedPost = await req.redisClient.get(cacheKey);
+
+		if (cachedPost) {
+			return res.json(JSON.parse(cachedPost));
+		}
+
+		const post = await Post.findById(postId);
+
+		if (!post) {
+			return res.status(404).json({
+				success: false,
+				message: 'Post not found',
+			});
+		}
+
+		await req.redisClient.set(cacheKey, JSON.stringify(post), 'EX', 300);
+
+		res.json(post);
 	} catch (error) {
 		logger.error('Error fetching post: ', error);
 		res.status(500).json({
@@ -98,6 +121,25 @@ const getPost = async (req, res) => {
 
 const deletePost = async (req, res) => {
 	try {
+		const postId = req.params.id;
+		const post = await Post.findOneAndDelete({
+			_id: postId,
+			user: req.user.userId,
+		});
+
+		if (!post) {
+			return res.status(404).json({
+				success: false,
+				message: 'Post not found',
+			});
+		}
+
+		await invalidatePostCache(req, postId);
+
+		res.json({
+			success: true,
+			message: 'Post deleted successfully',
+		});
 	} catch (error) {
 		logger.error('Error deleting post: ', error);
 		res.status(500).json({
