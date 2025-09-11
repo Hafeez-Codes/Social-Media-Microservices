@@ -21,6 +21,7 @@ mongoose
 	.then(() => logger.info('Connected to MongoDB'))
 	.catch((err) => logger.error('Mongo connection error: ', err));
 
+// Redis Connection
 const redisClient = new Redis(process.env.REDIS_URL);
 
 // Middleware
@@ -34,6 +35,7 @@ app.use((req, res, next) => {
 	next();
 });
 
+// Rate Limiting
 const getClientId = (req) =>
 	req.user?.id ||
 	req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||

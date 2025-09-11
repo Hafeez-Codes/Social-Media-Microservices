@@ -2,9 +2,9 @@ const cloudinary = require('cloudinary').v2;
 const logger = require('./logger');
 
 cloudinary.config({
-	cloud_name: process.env.cloud_name,
-	api_key: process.env.api_key,
-	api_secret: process.env.api_secret,
+	cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+	api_key: process.env.CLOUDINARY_API_KEY,
+	api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const uploadToCloudinary = (file) => {
@@ -16,7 +16,7 @@ const uploadToCloudinary = (file) => {
 			(error, result) => {
 				if (error) {
 					logger.error('Cloudinary upload error:', error);
-					resolve(error);
+					reject(error);
 				} else {
 					resolve(result);
 				}
@@ -27,4 +27,14 @@ const uploadToCloudinary = (file) => {
 	});
 };
 
-module.exports = { uploadToCloudinary };
+const deleteFromCloudinary = async (publicId) => {
+	try {
+		const result = await cloudinary.uploader.destroy(publicId);
+		logger.info(`Deleted Cloudinary file: ${publicId}`);
+		return result;
+	} catch (error) {
+		logger.error('Error deleting Cloudinary file:', error);
+	}
+};
+
+module.exports = { uploadToCloudinary, deleteFromCloudinary };

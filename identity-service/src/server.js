@@ -104,27 +104,6 @@ const sensitiveEndPointsLimiter = rateLimit({
 	}),
 });
 
-/*
-const sensitiveEndPointsLimiter = rateLimit({
-	windowMs: 15 * 60 * 1000,
-	max: 50,
-	standardHeaders: true,
-	legacyHeaders: false,
-	handler: (req, res) => {
-		logger.warn(
-			`Rate Limit exceeded for sensitive endpoint for IP: ${req.ip}`
-		);
-		res.status(429).json({
-			success: false,
-			message: 'Too many requests...',
-		});
-	},
-	store: new RedisStore({
-		sendCommand: (...args) => redisClient.call(...args),
-	}),
-});
-*/
-
 app.use('/api/auth/register', sensitiveEndPointsLimiter);
 
 // Routes
