@@ -60,4 +60,21 @@ const uploadMedia = async (req, res) => {
 	}
 };
 
-module.exports = { uploadMedia };
+const getAllMedia = async (req, res) => {
+	try {
+		const mediaList = await Media.find().sort({
+			createdAt: -1,
+		});
+		res.json({ success: true, media: mediaList });
+	} catch (error) {
+		logger.error('Error fetching media:', error);
+		res.status(201).json({
+			success: true,
+			mediaId: newMedia._id,
+			url: newMedia.url,
+			message: 'Error fetching media',
+		});
+	}
+};
+
+module.exports = { uploadMedia, getAllMedia };

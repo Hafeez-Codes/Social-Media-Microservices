@@ -9,6 +9,8 @@ const { RedisStore } = require('rate-limit-redis');
 const mediaRoutes = require('./routes/media-routes');
 const errorHandler = require('./middlewares/errorHandler');
 const logger = require('./utils/logger');
+const { connectToRabbitMQ, consumeEvent } = require('./utils/rabbitmq');
+const { handlePostDeleted } = require('./eventHandlers/media-event-handlers');
 
 const app = express();
 const PORT = process.env.PORT || 3003;
@@ -48,7 +50,9 @@ const sensitiveEndPointsLimiter = rateLimit({
 	legacyHeaders: false,
 	handler: (req, res) => {
 		logger.warn(
-			`Sensitive endpoint rate limit exceeded for Client: ${getClientId(req)}`
+			`Sensitive endpoint rate limit exceeded for Client: ${getClientId(
+				req
+			)}`
 		);
 		res.status(429).json({
 			success: false,
@@ -60,21 +64,33 @@ const sensitiveEndPointsLimiter = rateLimit({
 	}),
 });
 
-app.use('/api/media/upload', sensitiveEndPointsLimiter )
+app.use('/api/media/upload', sensitiveEndPointsLimiter);
 
 // Routes
-app.use('/api/media', mediaRoutes)
+app.use('/api/media', mediaRoutes);
 
 // Error Handling Middleware
-app.use(errorHandler)
+app.use(errorHandler);
 
-app.listen(PORT, () => {
-    logger.info(`Media service running on port ${PORT}`);
-})
+async function startServer() {
+	try {
+		await connectToRabbitMQ();
+
+		// Consume events
+		await consumeEvent('post.deleted', handlePostDeleted);
+
+		app.listen(PORT, () => {
+			logger.info(`Media service running on port ${PORT}`);
+		});
+	} catch (error) {
+		logger.error('Failed to start server', { error });
+		process.exit(1);
+	}
+}
+
+startServer();
 
 // Unhandled Regection Handling
 process.on('unhandledRejection', (reason, promise) => {
 	logger.error('Unhandled Rejection at: ', promise, 'reason: ', reason);
 });
-
-

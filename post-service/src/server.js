@@ -11,6 +11,7 @@ const helmet = require('helmet');
 const postRoutes = require('./routes/post-route');
 const errorHandler = require('./middlewares/errorHandler');
 const logger = require('./utils/logger');
+const { connectToRabbitMQ } = require('./utils/rabbitmq');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -104,9 +105,19 @@ app.use(
 // Error Handler
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-	logger.info(`Post service running on port ${PORT}`);
-});
+async function startServer() {
+	try {
+		await connectToRabbitMQ();
+		app.listen(PORT, () => {
+			logger.info(`Post service running on port ${PORT}`);
+		});
+	} catch (error) {
+		logger.error('Failed to start server', { error });
+		process.exit(1);
+	}
+}
+
+startServer();
 
 // Unhandled Regection Handling
 process.on('unhandledRejection', (reason, promise) => {
