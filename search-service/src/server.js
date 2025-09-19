@@ -67,9 +67,15 @@ const sensitiveEndPointsLimiter = rateLimit({
 	}),
 });
 
-app.use('/api/search/posts', sensitiveEndPointsLimiter, searchRoutes);
-
-app.use('/api/search', searchRoutes);
+app.use(
+	'/api/search',
+	(req, res, next) => {
+		req.redisClient = redisClient;
+		next();
+	},
+	sensitiveEndPointsLimiter,
+	searchRoutes
+);
 
 app.use(errorHandler);
 

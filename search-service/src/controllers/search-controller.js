@@ -6,12 +6,28 @@ const searchPostController = async (req, res) => {
 	try {
 		const { query } = req.query;
 
+		// Implement caching with Redis
+		const cachedKey = `search:${query}`;
+		const cachedResults = await req.redisClient.get(cachedKey);
+
+		if (cachedResults) {
+			return res.json(JSON.parse(cachedResults));
+		}
+
 		const results = await Search.find(
 			{ $text: { $search: query } },
 			{ score: { $meta: 'textScore' } }
 		)
 			.sort({ score: { $meta: 'textScore' } })
 			.limit(10);
+
+		// Save in Redis cache for 5 minutes
+		await req.redisClient.set(
+			cachedKey,
+			JSON.stringify(results),
+			'EX',
+			600
+		);
 
 		res.json(results);
 	} catch (error) {
