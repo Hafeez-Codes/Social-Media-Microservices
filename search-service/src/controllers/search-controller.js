@@ -15,7 +15,7 @@ const searchPostController = async (req, res) => {
 
 		res.json(results);
 	} catch (error) {
-		logger.error('Error while seearching posts', { error });
+		logger.error('Error while searching posts', { error });
 		res.status(500).json({
 			success: false,
 			message: 'Internal Server Error',

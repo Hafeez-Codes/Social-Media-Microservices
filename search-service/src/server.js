@@ -77,13 +77,13 @@ async function startServer() {
 	try {
 		await connectToRabbitMQ();
 
-		app.listen(PORT, () => {
-			logger.info(`Search service running on port ${PORT}`);
-		});
-
 		// ? Consume events from RabbitMQ
 		await consumeEvent('post.created', handlePostCreated);
 		await consumeEvent('post.deleted', handlePostDeleted);
+
+		app.listen(PORT, () => {
+			logger.info(`Search service running on port ${PORT}`);
+		});
 	} catch (error) {
 		logger.error('Error starting search service: ', error);
 		process.exit(1);
